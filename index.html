@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beuna POS - Fortuna Laundry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-6 font-sans text-gray-800 min-h-screen">
+
+    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+        <div class="mb-8 border-b pb-4">
+            <h1 class="text-2xl font-bold text-green-600">Beuna POS - Fortuna Laundry</h1>
+            <p class="text-sm text-gray-500 mt-1">Sistem kasir digital terintegrasi. Uji Coba Webhook n8n.</p>
+        </div>
+
+        <form id="orderForm" class="space-y-8">
+            <section>
+                <h2 class="text-lg font-semibold mb-3 border-l-4 border-green-500 pl-2">Data Pelanggan</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Nama Pelanggan</label>
+                        <input type="text" id="customerName" required class="w-full p-2 border rounded focus:ring-2 focus:ring-green-400 outline-none" placeholder="Misal: Budi">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">No WhatsApp</label>
+                        <input type="text" id="waNumber" required class="w-full p-2 border rounded focus:ring-2 focus:ring-green-400 outline-none" placeholder="628...">
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold mb-3 border-l-4 border-green-500 pl-2">Keranjang Cucian</h2>
+                <div class="mb-4">
+                    <select id="serviceSelect" class="w-full p-2 border rounded bg-gray-50 cursor-pointer outline-none">
+                        <option value="">+ Tambah Layanan...</option>
+                        <option value="FORTUNA-CRR|Cuci Reguler (Kiloan)|6000|72">Cuci Reguler (Kiloan) - Rp 6.000</option>
+                        <option value="FORTUNA-CKR|Cuci Komplit Reguler (Kiloan)|7000|72">Cuci Komplit Reguler (Kiloan) - Rp 7.000</option>
+                        <option value="FORTUNA-EXP24|Express 1 Hari (Kiloan)|10000|24">Express 1 Hari (Kiloan) - Rp 10.000</option>
+                        <option value="FORTUNA-SAT-SPT|Cuci Sepatu (Satuan)|25000|72">Cuci Sepatu (Satuan) - Rp 25.000</option>
+                        <option value="FORTUNA-SAT-BCS|Bedcover Sedang (Satuan)|25000|72">Bedcover Sedang (Satuan) - Rp 25.000</option>
+                    </select>
+                </div>
+
+                <div id="cartItems" class="space-y-2">
+                    <p class="text-center text-gray-400 text-sm italic py-4" id="emptyCartMsg">Keranjang masih kosong</p>
+                </div>
+            </section>
+
+            <section class="bg-green-50 p-4 rounded-lg border border-green-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Grand Total</h2>
+                    <h2 class="text-2xl font-extrabold text-green-700">Rp <span id="grandTotalDisplay">0</span></h2>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Status Pembayaran</label>
+                        <select id="paymentStatus" class="w-full p-2 border rounded outline-none">
+                            <option value="BELUM BAYAR">Belum Bayar</option>
+                            <option value="DP">DP (Sebagian)</option>
+                            <option value="LUNAS">Lunas</option>
+                        </select>
+                    </div>
+                    <div id="dpContainer" class="hidden">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Jumlah DP (Rp)</label>
+                        <input type="number" id="paidAmount" value="0" class="w-full p-2 border rounded outline-none">
+                    </div>
+                </div>
+            </section>
+
+            <button type="submit" id="submitBtn" class="w-full bg-green-600 text-white font-bold text-lg py-4 rounded-lg shadow hover:bg-green-700 transition">
+                BUAT ORDER SEKARANG
+            </button>
+        </form>
+    </div>
+
+    <script>
+        let cart = [];
+        let grandTotal = 0;
+
+        const serviceSelect = document.getElementById('serviceSelect');
+        const cartItemsContainer = document.getElementById('cartItems');
+        const emptyCartMsg = document.getElementById('emptyCartMsg');
+        const grandTotalDisplay = document.getElementById('grandTotalDisplay');
+        const paymentStatus = document.getElementById('paymentStatus');
+        const dpContainer = document.getElementById('dpContainer');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Handle Add Item
+        serviceSelect.addEventListener('change', (e) => {
+            if (!e.target.value) return;
+            
+            const [id, name, price, duration] = e.target.value.split('|');
+            cart.push({
+                service_id: id,
+                service_name: name,
+                price: parseFloat(price),
+                qty_or_weight: 1,
+                duration_hours: parseInt(duration),
+                subtotal: parseFloat(price)
+            });
+            
+            e.target.value = ''; // Reset select
+            renderCart();
+        });
+
+        // Handle Payment Status Toggle
+        paymentStatus.addEventListener('change', (e) => {
+            if (e.target.value === 'DP') {
+                dpContainer.classList.remove('hidden');
+            } else {
+                dpContainer.classList.add('hidden');
+                document.getElementById('paidAmount').value = e.target.value === 'LUNAS' ? grandTotal : 0;
+            }
+        });
+
+        // Render Cart UI
+        function renderCart() {
+            cartItemsContainer.innerHTML = '';
+            grandTotal = 0;
+
+            if (cart.length === 0) {
+                cartItemsContainer.appendChild(emptyCartMsg);
+                emptyCartMsg.style.display = 'block';
+            } else {
+                emptyCartMsg.style.display = 'none';
+                cart.forEach((item, index) => {
+                    grandTotal += item.subtotal;
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'flex items-center justify-between bg-white p-3 rounded border';
+                    itemDiv.innerHTML = `
+                        <div class="flex-1">
+                            <p class="font-medium text-sm">${item.service_name}</p>
+                            <p class="text-xs text-gray-500">Rp ${item.price} x ${item.qty_or_weight}</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <input type="number" step="0.1" min="0.1" value="${item.qty_or_weight}" 
+                                onchange="updateQty(${index}, this.value)" 
+                                class="w-20 p-1 border rounded text-center outline-none" placeholder="Qty/Kg">
+                            <span class="font-semibold w-24 text-right">Rp ${item.subtotal}</span>
+                            <button type="button" onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold px-2">X</button>
+                        </div>
+                    `;
+                    cartItemsContainer.appendChild(itemDiv);
+                });
+            }
+
+            grandTotalDisplay.innerText = grandTotal.toLocaleString('id-ID');
+            if (paymentStatus.value === 'LUNAS') {
+                document.getElementById('paidAmount').value = grandTotal;
+            }
+        }
+
+        // Update Qty
+        window.updateQty = (index, qty) => {
+            const parsedQty = parseFloat(qty) || 0;
+            cart[index].qty_or_weight = parsedQty;
+            cart[index].subtotal = parsedQty * cart[index].price;
+            renderCart();
+        };
+
+        // Remove Item
+        window.removeItem = (index) => {
+            cart.splice(index, 1);
+            renderCart();
+        };
+
+        // Submit to n8n Webhook
+        document.getElementById('orderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (cart.length === 0) {
+                alert('Keranjang masih kosong!');
+                return;
+            }
+
+            submitBtn.innerText = 'Memproses...';
+            submitBtn.disabled = true;
+
+            const waNumber = document.getElementById('waNumber').value.replace(/\D/g, ''); // Clean WA number
+            
+            let finalPaidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+            if (paymentStatus.value === 'LUNAS') finalPaidAmount = grandTotal;
+            if (paymentStatus.value === 'BELUM BAYAR') finalPaidAmount = 0;
+
+            const payload = {
+                merchant_id: "FORTUNA",
+                outlet_id: "FORTUNA-01",
+                customer: {
+                    wa_number: waNumber,
+                    name: document.getElementById('customerName').value
+                },
+                payment: {
+                    status: paymentStatus.value,
+                    paid_amount: finalPaidAmount,
+                    grand_total: grandTotal
+                },
+                items: cart.map(item => ({
+                    service_id: item.service_id,
+                    service_name: item.service_name,
+                    qty_or_weight: item.qty_or_weight,
+                    subtotal: item.subtotal,
+                    duration_hours: item.duration_hours
+                }))
+            };
+
+            try {
+                // GANTI URL DI BAWAH INI DENGAN URL WEBHOOK TEST N8N ANDA
+                const WEBHOOK_URL = 'https://GANTI-DENGAN-URL-WEBHOOK-N8N-ANDA.com/webhook-test/create-order';
+
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    alert('SUKSES! Order terkirim ke n8n.');
+                    // Reset Form
+                    document.getElementById('orderForm').reset();
+                    cart = [];
+                    renderCart();
+                    dpContainer.classList.add('hidden');
+                } else {
+                    alert('Gagal mengirim data. Cek CORS atau URL Webhook.');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Terjadi kesalahan jaringan.');
+            } finally {
+                submitBtn.innerText = 'BUAT ORDER SEKARANG';
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
