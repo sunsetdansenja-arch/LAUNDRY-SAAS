@@ -207,8 +207,8 @@
             };
 
             try {
-                // GANTI URL DI BAWAH INI DENGAN URL WEBHOOK TEST N8N ANDA
-                const WEBHOOK_URL = 'https://GANTI-DENGAN-URL-WEBHOOK-N8N-ANDA.com/webhook-test/create-order';
+                // WEBHOOK N8N ANDA (Pastikan workflow aktif di n8n)
+                const WEBHOOK_URL = 'https://n8n-mzbmiib3etk4.kangkung.sumopod.my.id/webhook/create-order';
 
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
@@ -218,7 +218,6 @@
 
                 if (response.ok) {
                     alert('SUKSES! Order terkirim ke n8n.');
-                    // Reset Form
                     document.getElementById('orderForm').reset();
                     cart = [];
                     renderCart();
@@ -228,7 +227,7 @@
                 }
             } catch (error) {
                 console.error(error);
-                alert('Terjadi kesalahan jaringan.');
+                alert('Terjadi kesalahan jaringan (CORS/Network). Cek console untuk detailnya.');
             } finally {
                 submitBtn.innerText = 'BUAT ORDER SEKARANG';
                 submitBtn.disabled = false;
