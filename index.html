@@ -27,7 +27,7 @@
             <form id="form-order" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <input type="text" id="custName" placeholder="Nama Pelanggan" required class="p-2 border rounded outline-none focus:ring-2 focus:ring-green-400">
-                    <input type="text" id="custWA" placeholder="No WA (Cth: 628...)" required class="p-2 border rounded outline-none focus:ring-2 focus:ring-green-400">
+                    <input type="text" id="custWA" placeholder="No WA (Cth: 0812...)" required class="p-2 border rounded outline-none focus:ring-2 focus:ring-green-400">
                 </div>
                 
                 <div class="flex space-x-2">
@@ -217,13 +217,15 @@
             renderCart();
         }
 
-        // 2. CREATE ORDER
+        // 2. CREATE ORDER (DENGAN POPUP WA.ME)
         document.getElementById('form-order').addEventListener('submit', async (e) => {
             e.preventDefault();
             if(cartItems.length === 0) return alert('Keranjang kosong bree!');
             
             const btn = e.target.querySelector('button');
-            btn.innerText = 'MEMPROSES...'; btn.disabled = true;
+            const originalText = btn.innerText;
+            btn.innerText = 'MEMPROSES...'; 
+            btn.disabled = true;
 
             let paidAmt = parseFloat(document.getElementById('payAmount').value) || 0;
             if(document.getElementById('payStatus').value === 'BELUM BAYAR') paidAmt = 0;
@@ -240,12 +242,39 @@
             try {
                 const res = await fetch(WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await res.json();
-                alert("N8N RESPONS: " + JSON.stringify(data));
-                cartItems = []; renderCart(); e.target.reset();
+                
+                if (data.status === 'success') {
+                    // Cek dan format nomor WA (pastikan pakai 62)
+                    let waNum = data.wa_number || '';
+                    if (waNum.startsWith('0')) {
+                        waNum = '62' + waNum.substring(1);
+                    }
+                    
+                    // Siapkan link wa.me
+                    const waText = encodeURIComponent(data.waha_text || `Halo Kak, Order ${data.order_id} berhasil dibuat!`);
+                    const waLink = `https://wa.me/${waNum}?text=${waText}`;
+                    
+                    // Konfirmasi ke Kasir
+                    const isKirim = confirm(`✅ Order ${data.order_id} Berhasil Disimpan!\n\nMau langsung kirim resi ke WhatsApp pelanggan sekarang?`);
+                    
+                    if (isKirim) {
+                        window.open(waLink, '_blank');
+                    }
+
+                    // Reset form
+                    cartItems = []; 
+                    renderCart(); 
+                    e.target.reset();
+                    document.getElementById('payAmount').classList.add('hidden');
+                } else {
+                    alert('Gagal: ' + JSON.stringify(data));
+                }
+
             } catch (err) {
                 alert("Error! Cek console / n8n lu."); console.error(err);
             } finally {
-                btn.innerText = 'KIRIM CREATE ORDER'; btn.disabled = false;
+                btn.innerText = originalText; 
+                btn.disabled = false;
             }
         });
 
