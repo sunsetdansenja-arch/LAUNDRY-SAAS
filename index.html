@@ -116,8 +116,8 @@
         // ==========================================
         // CONFIGURASI UTAMA
         // ==========================================
-        const WEBHOOK_URL = 'https://URL_WEBHOOK_N8N_LU_DISINI/webhook/beuna-pos-api';
-        const MERCHANT_ID = 'FORTUNA'; // Anggap aja kasir Fortuna yang lagi login
+        const WEBHOOK_URL = 'https://n8n-mzbmiib3etk4.kangkung.sumopod.my.id/webhook/beuna-pos-api';
+        const MERCHANT_ID = 'FORTUNA'; 
         const OUTLET_ID = 'FORTUNA-01';
 
         // ==========================================
@@ -177,7 +177,7 @@
         // N8N API CALLS (TESTING)
         // ==========================================
         
-        // 1. GET SERVICES (Load otomatis pas awal)
+        // 1. GET SERVICES
         async function fetchServices() {
             try {
                 const res = await fetch(WEBHOOK_URL, {
@@ -187,11 +187,9 @@
                 const data = await res.json();
                 const select = document.getElementById('serviceSelect');
                 select.innerHTML = '<option value="">Pilih Layanan...</option>';
-                // Note: Struktur data n8n biasanya array of objects. 
-                // Sesuaikan 'PRICE', 'NAME' dll dengan nama kolom tabel lu.
+                
                 if(Array.isArray(data)) {
                     data.forEach(s => {
-                        // Kalau tabel belum diisi, gue kasih hardcode darurat buat testing cart-nya.
                         const price = s.PRICE || s.price || 5000;
                         const name = s.NAME || s.name || "Layanan Dummy";
                         const id = s.SERVICE_ID || s.id || "SRV-01";
@@ -200,7 +198,6 @@
                     });
                 } else {
                     select.innerHTML = '<option value="">Gagal meload tabel/Tabel kosong</option>';
-                    // Hardcode darurat biar lu tetep bisa ngetest Create Order kalau Tabel Services belum ada isinya
                     select.innerHTML += `<option value="DUMMY|Cuci Reguler Test|6000|72">Cuci Reguler Test - Rp 6000</option>`;
                 }
             } catch (err) {
@@ -316,7 +313,6 @@
                 tbody.innerHTML = '';
                 if(Array.isArray(data) && data.length > 0) {
                     data.forEach(order => {
-                        // Sesuaikan ORDER_ID, CUSTOMER_ID dll sesuai format DB lu
                         const oid = order.ORDER_ID || order.order_id || '-';
                         const cust = order.CUSTOMER_ID || order.customer_id || '-';
                         const total = order.GRAND_TOTAL || order.grand_total || 0;
@@ -342,7 +338,6 @@
             }
         }
 
-        // Jalankan get services saat web pertama kali direfresh
         window.onload = fetchServices;
     </script>
 </body>
